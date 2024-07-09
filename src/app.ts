@@ -2,10 +2,12 @@ import "reflect-metadata";
 import { AppDataSource } from "./data-source";
 import { User } from "./entity/User";
 import { input, select, password, confirm } from "@inquirer/prompts";
+import { Repository } from "typeorm";
 
 
 async function main(){
   await AppDataSource.initialize();
+  const userRepository = AppDataSource.getRepository(User)
   
 
   const menuOptions = [
@@ -44,16 +46,16 @@ async function main(){
 
     switch (answer) {
       case menuOptions[0].value:
-        await listUsers();
+        await listUsers(userRepository);
         break;
       case menuOptions[1].value:
-        await createUser();
+        await createUser(userRepository);
         break;
       case menuOptions[2].value:
-        await updateUser();
+        await updateUser(userRepository);
         break;
       case menuOptions[3].value:
-        await deleteUser();
+        await deleteUser(userRepository);
         break;
       case menuOptions[4].value:
         process.exit(0);
@@ -65,14 +67,14 @@ async function main(){
   menu();
 };
 
-async function listUsers() {
-  const users: User[] = [];
+async function listUsers(userRepository: Repository<User>) {
+  const users: User[] = await userRepository.find();
   console.log("Usuários:");
   console.table(users, ['id', 'username', 'email', 'passwordHash', 'fullName', 'isActive']);
 
 };
 
-async function createUser() {
+async function createUser(userRepository: Repository<User>) {
   const answers = {
     "fullName": await input({ "message": "Informe o nome completo do usuário:" }),
     "username": await input({ "message": "Informe o nome de usuário:" }),
@@ -81,11 +83,17 @@ async function createUser() {
   };
 
   console.table(answers)
-
+  const newUser = userRepository.create({
+    username: answers.username,
+    email: answers.email,
+    passwordHash: answers.password,
+    fullName: answers.fullName,
+  })
+  userRepository.save(newUser)
   console.log("Usuário criado com sucesso!");
 };
 
-async function updateUser() {
+async function updateUser(userRepository: Repository<User>) {
   const answers = {
     "id": await input({ "message": "ID do usuário que terá os dados atualizados:" }),
     "fullName": await input({ "message": "Novo nome completo do usuário:" }),
@@ -97,12 +105,20 @@ async function updateUser() {
 
   console.table(answers)
 
+  await userRepository.update(answers.id, {
+    username: answers.username,
+    email: answers.email,
+    passwordHash: answers.password,
+    fullName: answers.fullName,
+    isActive: answers.isActive
+  });
+
   console.log("Usuário atualizado com sucesso!");
 };
 
-async function deleteUser() {
+async function deleteUser(userRepository: Repository<User>) {
   const id = await input({message: "ID do usuário a ser removido:" });
-  
+  await userRepository.delete(id)
   console.log("Usuário removido com sucesso!");
 };
 
